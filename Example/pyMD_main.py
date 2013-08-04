@@ -23,12 +23,10 @@ particleMixTable = {
                                 "epses"     : [1, "as 0"],
                                 "masses"    : [1, "as 0"],
                                 
-                                "partition" : "automatic",
-                                
                                 "positions" : "random uniform",
                                 "velocities": "random normal"
                                 
-                             },
+                    },
                              
                              
                     "fixed" : {
@@ -43,19 +41,19 @@ particleMixTable = {
                                 "partition" : "cyclic",
                                 
                                 "positions" : [
-                                               "boundary x l", 
-                                               "boundary x r",
-                                               "boundary y u",
-                                               "boundary y b",
-                                               "middle x"
+                                               "boundary l", 
+                                               "boundary r",
+                                               "boundary t",
+                                               "boundary b",
+                                               "centerline x"
                                               ],
                                               
                                 "thickness"  : 4,
                                 "separation" : "rel ly 0.05"
                     
-                              }
-
                     }
+
+}
             
 
 dt = 0.01
@@ -65,3 +63,16 @@ integrator = integrators.EulerCramer(dt)
 
 app = simulator.MDApp(dt, mesh, atoms, particleMixTable, integrator)
 app.run(T)
+
+
+
+
+
+
+
+#TODO PARSER
+
+#Start with fixed: Do positions, start with filling row by row and always check if occupied (brute force loop all fixed (within thickness of another) start with walls and loop iterate thickness in all other direction)
+
+
+
