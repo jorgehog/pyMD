@@ -74,5 +74,19 @@ app.run(T)
 
 #Start with fixed: Do positions, start with filling row by row and always check if occupied (brute force loop all fixed (within thickness of another) start with walls and loop iterate thickness in all other direction)
 
+"""
+Parser:
+-placement from rectMesh
+-placement from random
+-unify without stickies split?
+-work with events.
+-check constraints. autofix them?
+-Get working with different species.
 
+Simulator:
+-Verify solver.
+-Add thermostat.
+-Include measurements. Very OO.
+-toFile and additional simulator options.
+"""
 
