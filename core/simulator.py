@@ -1,6 +1,6 @@
 
 from matplotlib.pylab import scatter, show, clf
-import time
+import time, sys
 
 class MDApp():
     
@@ -14,25 +14,28 @@ class MDApp():
         
         self.ensemble.initialize(mixTable, self.mesh)
         
+        
+        
     def run(self, T):
         
 
         n = int(T/self.dt)
 
-      
- 
         
         for i in range(n):
-            
+         
+             
             self.ensemble.calculateForces()
             self.integrator.updateAtoms(self.ensemble.atoms)
             
+     
             for atom in self.ensemble.atoms:
                 scatter(atom.pos[0], atom.pos[1])
             show()
         
             time.sleep(0.01)
             clf()
+            print i
             
                 
             

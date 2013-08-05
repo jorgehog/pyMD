@@ -16,6 +16,10 @@ class integrator():
     def updateAtoms(self, atoms):
         
         for atom in atoms:
+
+            if atom.sticky:
+                continue 
+    
             atom.incrementVel(self.getNewVelShift(atom))
             atom.incrementPos(self.getNewPosShift(atom))
                                     
