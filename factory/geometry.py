@@ -29,7 +29,7 @@ class rectMesh():
             
             
     def checkNewPos(self, pos):
-        
+
         for i in range(self.dim):
             
             if pos[i] > self.shape[i]:
@@ -45,6 +45,6 @@ class rectMesh():
                 else:
                     pos[i] = 0
                     #Reverse transverse momentum?
-        
+
         return pos
         

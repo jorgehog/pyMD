@@ -1,4 +1,32 @@
 
+import sys, os#, threading
+
+cwd = os.getcwd()
+
+sys.path.append(cwd + "/../../")
+#sys.path.append("E:/programmer/DCViz-master/src")
+#
+#with open("MD_out.dat", "w") as f:
+#    f.write("")
+#
+#from DCViz_classes import MD_out
+#
+#class startDCVIZ(threading.Thread):
+#    
+#    MD = MD_out(os.path.join(cwd, "MD_out.dat"), True)
+#    
+#    def run(self):
+#        
+#        self.MD.mainloop()
+#        
+#    def stop(self):
+#        self.MD.stopped = True
+#        print "stopped viz thead"
+        
+        
+        
+        
+
 from pyMD.core import simulator, forceModels, integrators
 
 from pyMD.factory import atoms, geometry
@@ -11,6 +39,7 @@ N = 100
 mesh = geometry.rectMesh(periodicity, shape)
 
 forceModel = forceModels.LennardJones()
+#forceModel = forceModels.CoulombLike()
 
 atoms = atoms.ensemble(N, forceModel)
 
@@ -19,7 +48,7 @@ particleMixTable = {
                     "free" : {
                                 "fraction"  : "remaining",
                                 "nSpecies"  : 2,
-                                "sigmas"    : [1, "rel 0 1e-5"],
+                                "sigmas"    : [0.01, "rel 0 1e-5"],
                                 "epses"     : [1, "as 0"],
                                 "masses"    : [1, "as 0"],
                                 
@@ -56,13 +85,18 @@ particleMixTable = {
 }
             
 
-dt = 0.01
-T = 10
+dt = 1e-15
+T = 10*dt
 
 integrator = integrators.EulerCramer(dt)
 
+#visualizer = startDCVIZ()
+#visualizer.start()
+
 app = simulator.MDApp(dt, mesh, atoms, particleMixTable, integrator)
 app.run(T)
+
+#visualizer.stop()
 
 
 

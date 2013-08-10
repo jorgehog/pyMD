@@ -18,7 +18,16 @@ class LennardJones(forceModel):
         
         l = sqrt(relPos2)
         
-        sigmaOverR6 = (sigma/(relPos2))**6      
+        sigmaOverR6 = (sigma*sigma/relPos2)**3      
         
         return 4*eps*(sigmaOverR6**2 - sigmaOverR6)*relPos/l       
         
+								
+
+class CoulombLike(forceModel):
+    
+    def calculateForce(self, atom1, atom2, relPos, relPos2):
+        
+        eps = sqrt(atom2.eps*atom1.eps)
+        
+        return eps/relPos2

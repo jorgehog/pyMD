@@ -5,6 +5,8 @@ from random import uniform
 
 from pyMD.misc.parser import tableParser
 
+import sys
+
 
 class atom():
         
@@ -45,6 +47,7 @@ class ensemble():
         self.atoms = [atom() for i in range(N)]
         self.forceModel = forceModel
         self.N = N
+        self.EkPrev = None
         
         
     def initialize(self, mixingProperties, mesh):
@@ -56,6 +59,9 @@ class ensemble():
         for i, _atom in enumerate(self.atoms):
             _atom.initialize(mesh, *mixTable[i])
             
+        
+        self.getKineticEnergy()        
+        
         
     
     def unpackMix(self, mixProp):
@@ -72,7 +78,7 @@ class ensemble():
     
         minRelPos = atom1.pos - atom2.pos
         minRelPos2 = (minRelPos**2).sum()
-        
+
 
      
         for i in range(self.mesh.dim):
@@ -109,10 +115,58 @@ class ensemble():
                 if atom1.sticky and atom2.sticky:
                     continue
            
-                relPos, relPos2 = self.getRelPos(atom1, atom2)                
+                relPos, relPos2 = self.getRelPos(atom1, atom2)
+#                print "r_rel", relPos
+#                print "v", atom1.vel, atom2.vel
                 
                 force = self.forceModel.calculateForce(atom1, atom2, relPos, relPos2)
                 
-                atom1.updateForce(force)
-                atom2.updateForce(-force)
+                atom1.updateForce(-force)
+                atom2.updateForce(force)
+         
+        self.checkForces()
+         
+         
+         
+    def checkForces(self):
+        S = empty(shape=2,)
+        S.fill(0)
+
+        for atom in self.atoms:
+            S += atom.force
+        
+        for ei in S:
+            if ei > 1E-8:
+                print "Round-off errors in forcesum... breaking simulation"
+  
+                sys.exit(1)
+                
+                
+                
+    def getKineticEnergy(self):
+        
+        Ek = 0    
+        for _atom in self.atoms:
+            Ek += 0.5*_atom.mass*(_atom.vel**2).sum()
+            
+        self.checkKineticEnergy(Ek)
+                
+        return Ek
+
+ 
+
+    
+    def checkKineticEnergy(self, Ek):
+        
+        if not self.EkPrev:
+            self.EkPrev = Ek
+                
+        else:
+            if abs(Ek - self.EkPrev) > 1e-3:
+                print "Energy not conserved. Breaking simulation"
+                
+                sys.exit(1)
+                
+            else:
+                self.EkPrev = Ek       
         
