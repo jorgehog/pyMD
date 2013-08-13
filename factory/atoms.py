@@ -1,5 +1,5 @@
 
-from numpy import empty, random as npRandom, array
+from numpy import empty, random as npRandom, array, zeros
 
 from random import uniform
 
@@ -59,8 +59,11 @@ class ensemble():
         for i, _atom in enumerate(self.atoms):
             _atom.initialize(mesh, *mixTable[i])
             
+        self.calcelLinearMomentum()
         
-        self.getKineticEnergy()        
+        self.getKineticEnergy()       
+        
+        self.calculateForces()
         
     def setSimulator(self, sim):
         self.simulator = sim
@@ -122,13 +125,32 @@ class ensemble():
                 
                 force = self.forceModel.calculateForce(atom1, atom2, relPos, relPos2)
                 
-                atom1.updateForce(-force)
-                atom2.updateForce(force)
+                atom1.updateForce(force)
+                atom2.updateForce(-force)
          
         self.checkForces()
-         
-         
-         
+  
+       
+    def getTotalLinearMomentum(self):
+        
+        pTot = zeros(shape=self.mesh.dim)
+        
+        for _atom in self.atoms:
+            pTot += _atom.mass*_atom.vel
+        
+        return pTot
+    
+    
+    def calcelLinearMomentum(self):
+        
+        pTotScaled = self.getTotalLinearMomentum()/self.N
+        
+        for _atom in self.atoms:
+            _atom.vel -= pTotScaled/_atom.mass
+        
+        self.checkLinearMomentum()
+ 
+        
     def checkForces(self):
         S = empty(shape=2,)
         S.fill(0)
@@ -141,8 +163,15 @@ class ensemble():
                 print "Round-off errors in forcesum. %g Breaking simulation" % ei
   
                 self.simulator.stopped = True
+
                 
-                
+    def checkLinearMomentum(self):
+        
+        pTot = self.getTotalLinearMomentum().sum() 
+        
+        if pTot > 1E-10:
+            print "Total linear momentum is not zero. %g Breaking simulation" % pTot
+
                 
     def getKineticEnergy(self):
         
@@ -153,8 +182,6 @@ class ensemble():
         self.checkKineticEnergy(Ek)
                 
         return Ek
-
- 
 
     
     def checkKineticEnergy(self, Ek):

@@ -7,11 +7,11 @@ class rectMesh():
     
     def __init__(self, periodicity, shape):
         
-        self.px, self.py = shape[:2]     
+        self.px, self.py = periodicity[:2]     
         self.dim = len(shape)
         
         if self.dim == 3: 
-            self.pz = shape[2]
+            self.pz = periodicity[2]
             
         self.p = [self.px, self.py, self.pz]
         

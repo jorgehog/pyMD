@@ -6,7 +6,7 @@ from pyMD.factory import atoms, geometry
 
 shape = [2, 4]
 periodicity = [False, True]
-N = 10
+N = 2
 
 mesh = geometry.rectMesh(periodicity, shape)
 
@@ -57,22 +57,14 @@ particleMixTable = {
 }
             
 
-dt = 1e-6
+dt = 1e-5
 T = 100000*dt
 
-integrator = integrators.EulerCramer(dt)
-
-#visualizer = startDCVIZ()
-#visualizer.start()
+#integrator = integrators.EulerCramer(dt)
+integrator = integrators.VelocityVerlet(dt)
 
 app = simulator.MDApp(dt, mesh, atoms, particleMixTable, integrator)
 app.run(T)
-
-#visualizer.stop()
-
-
-
-
 
 
 

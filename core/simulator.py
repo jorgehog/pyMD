@@ -14,45 +14,44 @@ class MDApp():
         self.mesh = mesh
         self.ensemble = atoms
         self.integrator = integrator
-        
-        self.ensemble.initialize(mixTable, self.mesh)
+  
         self.ensemble.setSimulator(self)
+        self.ensemble.initialize(mixTable, self.mesh)
         
-        self.cwd = os.getcwd()        
-        
+        self.cwd = os.getcwd()            
         self.cleanFiles()
-        self.makeDCVizFile()
         
-        self.DCVizApp = DCVizThread(join(self.cwd, "MD_out0.dat"), True, False, delay = 0)
-
+        self.makeDCVizFile()        
+        self.DCVizApp = DCVizThread(join(self.cwd, "MD_out0.dat"), True, False, delay = 0.1)
+        
+        
         signal.signal(signal.SIGINT, self.signal_handler)        
         
         self.stopped = False
         
         
+        
     def cleanFiles(self):
         
         files = glob.glob("MD_out*.dat")
-        cwd = os.getcwd()
 
-        for _file in [join(cwd, __file) for __file in files]:
+        for _file in [join(self.cwd, __file) for __file in files]:
             os.remove(_file)
-            
         
+        
+    
     def run(self, T):
         
         n = int(T/self.dt)
-        
-        self.DCVizApp.start()
+        self.DCVizApp.start() 
         
         i = 0
         while i < n and not self.stopped:
 
-            self.ensemble.calculateForces()
-            
-            self.integrator.updateAtoms(self.ensemble.atoms)
+            self.integrator.updateAtoms(self.ensemble)
 
-            self.ensemble.getKineticEnergy() 
+            self.ensemble.getKineticEnergy()
+            self.ensemble.checkLinearMomentum()
             
             if (i % 100 == 0):
                 self.makeDCVizFile(i)
