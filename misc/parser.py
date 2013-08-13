@@ -1,8 +1,10 @@
 
 import re
-from numpy import array
+from os.path import join
+from os import getcwd
+from math import sqrt
+from numpy import array, float32, zeros
 from numpy.random import uniform, normal
-
 
 class ranDist():
     
@@ -20,17 +22,54 @@ class ranDist():
 
 class plcDist():
     
+    nav = {
+           "l" : {
+               "init" : array([0, 0]),
+               "iter" : array([0, 1]), 
+               "next" : array([1, 0]),
+               "end"  : array([0, "ly"])               
+           },
+           
+           "r" : {
+               "init" : array(["lx", 0]), 
+               "iter" : array([0, 1]), 
+               "next" : array([-1, 0]),
+               "end"  : array(["lx", "ly"])
+           },
+    
+           "t" : {
+               "init" : array([0, "ly"]), 
+               "iter" : array([1, 0]), 
+               "next" : array([0, -1]),
+               "end"  : array(["lx", "ly"])
+           },
+           
+           "b" : {
+               "init" : array([0, 0]), 
+               "iter" : array([1, 0]), 
+               "next" : array([0, 1]),
+               "end"  : array(["lx", 0])
+           }
+    
+    }    
+    
+    allPos = []
+    
     def __init__(self, mesh, thickness, separation, *positions):
         
         self.mesh = mesh
         self.thickness = thickness
         self.separation = separation
+        self.finished = False
         
         #Make a copy of all the keys and initialize empty lists
         self.positions={}
-        for key in tableParser.meshSpecs.keys():
+        self.allKeys = tableParser.meshSpecs.keys()        
+        
+        for key in self.allKeys:
             self.positions[key] = []
         
+        self.keys = self.positions.keys()
         
         for pos in positions:
             place, align = pos.split()
@@ -40,11 +79,102 @@ class plcDist():
             else:
                 self.positions[place].append(align)
             
-        self.i = -1
+        
+        for key, value in self.nav.items():
+            print key
+            for _key, _value in value.items():
+                tmp = zeros(shape=_value.shape)
+                
+                for i, element in enumerate(_value):                    
+                    if element in tableParser.knownSubs.keys():
+                        
+                        tmp[i] = eval(tableParser.knownSubs[element])
+
+                    else:
+                        
+                        tmp[i] = element
+
+                self.nav[key][_key] = tmp.copy()                        
+                        
+                print _key, self.nav[key][_key]
+            
+            
+        self.curStep = 0
+        self.keyIndex = 0
+        self.subKeyIndex = 0
+    
+    def isOccupied(self, pos):
+        
+        for setPos in self.allPos:
+  
+            if self.arrayLength(pos - setPos) < self.separation:
+                print "Occupied at pos: ", pos
+                True
+                
+        return False
+        
+    
+    def arrayLength(self, a):
+        
+        return sqrt((a**2).sum())
     
     def next(self):
         
-        self.i += 1
+        ### DEBUG
+        out = "%s %s\n" % tuple(self.mesh.shape)    
+        
+        for pos in self.allPos:
+            out += "%g %g\n" % (pos[0], pos[1])
+
+        with open(join(getcwd(), "MD_out1337.dat"), "w") as f:
+            f.write(out)        
+        ####
+        
+        print "----"
+        raw_input()
+        
+        
+        
+        key = self.positions[self.keys[self.keyIndex]][self.subKeyIndex]
+        nav = self.nav[key]
+        
+        #Calculate the lineSize and width in indexes
+        lineSize = self.arrayLength(nav["end"] - nav["init"])/self.separation #Number of indexes on a line
+        
+        #Curindex = widthPos*lineSize + linePos
+        linePos = self.curStep%lineSize #Position along the line
+        widthPos = (self.curStep - linePos)/lineSize #Position along the width
+        
+        lastIndex = self.thickness*lineSize
+        
+        print linePos, "out of", lineSize        
+        print widthPos, "out of", self.thickness       
+        
+        #Iterate the indexes and keys
+        if self.curStep > lastIndex:
+            self.curStep = 0
+            
+            if self.subKeyIndex == len(self.positions[self.keys[self.keyIndex]]) - 1:
+                self.subKeyIndex = 0
+                self.keyIndex += 1
+                
+                if self.keyIndex == len(self.keys):
+                    self.finished = True
+                    
+            else:
+                self.subKeyIndex += 1
+                
+        
+        pos = nav["init"] + self.separation*(nav["iter"]*linePos + nav["next"]*widthPos)
+        self.curStep += 1
+        print "trying to place", pos
+        
+        if self.isOccupied(pos):
+            return None
+        else:
+            self.allPos.append(pos)          
+            return pos
+        
         
         return array([uniform(0, self.mesh.lx), uniform(0, self.mesh.ly)]) ##DUMMY
             
@@ -104,13 +234,6 @@ class tableParser():
     def unpackMix(self, mixProp):
         
         mixProp = self.getValuesConstraitsEvents(mixProp)
-                
-        ### DEBUG  
-        for k, v in mixProp.items():
-            print k, ":"
-            for _k, _v in v.items():
-                print _k, "  ", _v    
-        ###                    
                         
         mixTable = self.initializeTable(mixProp)
         
@@ -173,16 +296,17 @@ class tableParser():
         else:
             posIter = plcDist(self.mesh, thickness, separation, *positions)
                 
-                
-                
         n = 0
-        finished = False 
         
-        while n < nCap or finished:
+        while n < nCap:
             
+            newPos = None
+            while newPos is None and not posIter.finished:
+                newPos = posIter.next()
             
-            newPos = posIter.next()
-#            newVel = None
+            if posIter.finished:
+                break
+            
             newVel = normal(size=self.mesh.dim)
 
             sigma = stickyProps["sigmas"][0]

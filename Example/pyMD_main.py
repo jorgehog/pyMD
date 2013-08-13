@@ -6,7 +6,7 @@ from pyMD.factory import atoms, geometry
 
 shape = [2, 4]
 periodicity = [False, True]
-N = 2
+N = 100
 
 mesh = geometry.rectMesh(periodicity, shape)
 
