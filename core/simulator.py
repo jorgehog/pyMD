@@ -1,89 +1,86 @@
 
-from matplotlib.pylab import scatter, show, clf, close, ylim, xlim
-import time, sys
+import os, signal, glob, shutil
+from os.path import join
+
+from DCVizWrapper import DCVizThread
 
 from __init__ import controlParameters
 
 class MDApp():
     
-				def __init__(self, dt, mesh, atoms, mixTable, integrator):
+    def __init__(self, dt, mesh, atoms, mixTable, integrator):
+        
+        self.dt = dt
+        self.mesh = mesh
+        self.ensemble = atoms
+        self.integrator = integrator
+        
+        self.ensemble.initialize(mixTable, self.mesh)
+        self.ensemble.setSimulator(self)
+        
+        self.cwd = os.getcwd()        
+        
+        self.cleanFiles()
+        self.makeDCVizFile()
+        
+        self.DCVizApp = DCVizThread(join(self.cwd, "MD_out0.dat"), True, False, delay = 0)
 
-  
-							self.dt = dt
-			        
-							self.mesh = mesh
-							self.ensemble = atoms
-			       
-							self.integrator = integrator
-							self.ensemble.initialize(mixTable, self.mesh)
-	        
+        signal.signal(signal.SIGINT, self.signal_handler)        
+        
+        self.stopped = False
         
         
-				def run(self, T):
+    def cleanFiles(self):
         
+        files = glob.glob("MD_out*.dat")
+        cwd = os.getcwd()
 
-							n = int(T/self.dt)
-							
-         
-							for i in range(n):
-							
-							#			self.makeDCVizFile()
-							#			self.DCViz.mainloop()
-											self.ensemble.calculateForces()
-   
-#   
-#   
-#											self.makeDCVizFile()
-#											if i == 100:
-#													sys.exit(0)
-#											M = 0
-#											for atom in self.ensemble.atoms:
-#													m = max(abs(atom.pos[0]), abs(atom.pos[1]))
-#													scatter(atom.pos[0], atom.pos[1])
-#											  
-#													M = max(M, m)
-#																
-#											print "max=", M
-#											ylim([0,4])
-#											xlim([0,2])
-#											show()
-#											time.sleep(1)
-#											close()
-#											clf()
-					
-											print "%d%%" % int((i+1.) / n * 100)        											
-											self.integrator.updateAtoms(self.ensemble.atoms)
-											self.ensemble.getKineticEnergy()      
+        for _file in [join(cwd, __file) for __file in files]:
+            os.remove(_file)
+            
+        
+    def run(self, T):
+        
+        n = int(T/self.dt)
+        
+        self.DCVizApp.start()
+        
+        i = 0
+        while i < n and not self.stopped:
 
-											           
+            self.ensemble.calculateForces()
+            
+            self.integrator.updateAtoms(self.ensemble.atoms)
 
-	
-	
+            self.ensemble.getKineticEnergy() 
+            
+            if (i % 100 == 0):
+                self.makeDCVizFile(i)
+                print "%d%%" % int((i+1.) / n * 100)   
 
-				def makeDCVizFile(self):
-
-#		sx = ""
-#		sy = ""
-#		sz = ""
-#		for atom in self.ensemble.atoms:
-#			sx += "%g " % atom.pos[0]
-#			sy += "%g " % atom.pos[1]
-#			
-#			if self.mesh.dim == 3:
-#				sz += "%g " % atom.pos[2]
-#		
-#		s = [sx, sy]
-#		if self.mesh.dim == 3:
-#			s.append(sz)
-#			
-#		out = (("%g "*self.mesh.dim).strip() + "\n%s"*self.mesh.dim) % (tuple(self.mesh.shape)+ tuple(s))
+            i += 1
+            
+        self.clean()
+        
+        
+        
+    def clean(self):    
+        self.DCVizApp.stop()
 
 
-								out = "%s %s\n" % tuple(self.mesh.shape)
-          
-								for atom in self.ensemble.atoms:
-										out += "%g %g\n" % (atom.pos[0], atom.pos[1])
+    def makeDCVizFile(self, i=0):
+        
+        out = "%s %s\n" % tuple(self.mesh.shape)    
+        
+        for atom in self.ensemble.atoms:
+            out += "%g %g\n" % (atom.pos[0], atom.pos[1])
 
-								with open("./MD_out.dat", "w") as f:
-										f.write(out)
-		
+        with open(join(self.cwd, "MD_out%d.dat" % i), "w") as f:
+            f.write(out)
+
+
+    def signal_handler(self, signal, frame):
+
+        self.stopped = True
+        self.clean()
+        

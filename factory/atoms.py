@@ -62,7 +62,8 @@ class ensemble():
         
         self.getKineticEnergy()        
         
-        
+    def setSimulator(self, sim):
+        self.simulator = sim
     
     def unpackMix(self, mixProp):
         
@@ -137,9 +138,9 @@ class ensemble():
         
         for ei in S:
             if ei > 1E-8:
-                print "Round-off errors in forcesum... breaking simulation"
+                print "Round-off errors in forcesum. %g Breaking simulation" % ei
   
-                sys.exit(1)
+                self.simulator.stopped = True
                 
                 
                 
@@ -163,9 +164,9 @@ class ensemble():
                 
         else:
             if abs(Ek - self.EkPrev) > 1e-3:
-                print "Energy not conserved. Breaking simulation"
+                print "Energy not conserved. %g / %g Breaking simulation" % (self.EkPrev, Ek)
                 
-                sys.exit(1)
+                self.simulator.stopped = True
                 
             else:
                 self.EkPrev = Ek       
