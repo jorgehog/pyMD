@@ -54,12 +54,11 @@ class ensemble():
         
         self.mesh = mesh
         mixTable = self.unpackMix(mixingProperties)  
-        
-        
+      
         for i, _atom in enumerate(self.atoms):
             _atom.initialize(mesh, *mixTable[i])
             
-        self.calcelLinearMomentum()
+        self.cancelLinearMomentum()
         
         self.getKineticEnergy()       
         
@@ -70,12 +69,20 @@ class ensemble():
     
     def unpackMix(self, mixProp):
         
-        unpacker = tableParser(self.mesh, self.N)
+        unpacker = tableParser(self, self.mesh, self.N)
         
         table = unpacker.unpackMix(mixProp)
         
         return table
+    
+    def getColor(self, atom):
         
+        if atom.sticky:
+            sigmas = self.fixedSigmas
+        else:
+            sigmas = self.freeSigmas
+            
+        return sigmas.index(atom.sigma)        
         
     def getRelPos(self, atom1, atom2):
         #SMARTIFY THIS
@@ -135,18 +142,26 @@ class ensemble():
         
         pTot = zeros(shape=self.mesh.dim)
         
+        N = 0
         for _atom in self.atoms:
+            if _atom.sticky:
+                continue
+            
             pTot += _atom.mass*_atom.vel
+            N += 1
         
-        return pTot
+        return pTot, N
     
     
-    def calcelLinearMomentum(self):
+    def cancelLinearMomentum(self):
         
-        pTotScaled = self.getTotalLinearMomentum()/self.N
+        pTotScaled, N = self.getTotalLinearMomentum()
         
         for _atom in self.atoms:
-            _atom.vel -= pTotScaled/_atom.mass
+            if _atom.sticky:
+                continue
+            
+                _atom.vel -= pTotScaled/(_atom.mass*N)
         
         self.checkLinearMomentum()
  
@@ -167,7 +182,7 @@ class ensemble():
                 
     def checkLinearMomentum(self):
         
-        pTot = self.getTotalLinearMomentum().sum() 
+        pTot = self.getTotalLinearMomentum()[0].sum() 
         
         if pTot > 1E-10:
             print "Total linear momentum is not zero. %g Breaking simulation" % pTot
@@ -177,6 +192,9 @@ class ensemble():
         
         Ek = 0    
         for _atom in self.atoms:
+            if _atom.sticky:
+                continue
+            
             Ek += 0.5*_atom.mass*(_atom.vel**2).sum()
             
         self.checkKineticEnergy(Ek)

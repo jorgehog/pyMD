@@ -3,20 +3,10 @@ import re
 from os.path import join
 from os import getcwd
 from math import sqrt
-from numpy import array, float32, zeros
-from numpy.random import uniform, normal
+from numpy import array, zeros, string_
+from random import randint        
 
-class ranDist():
-    
-    def __init__(self, function, *_input, **kwargs):
-        
-        self.function = function
-        self.input = _input
-        self.kwargs
-        
-    def __iter__(self):
-        yield self.function(*self.input, **self.kwargs)
-        
+from pyMD.misc import RNGFunctions
         
         
 
@@ -49,8 +39,22 @@ class plcDist():
                "iter" : array([1, 0]), 
                "next" : array([0, 1]),
                "end"  : array(["lx", 0])
+           },
+           
+           "x" : {
+               "init" : array([0, "ly/2 - width/2"]), 
+               "iter" : array([1, 0]), 
+               "next" : array([0, 1]),
+               "end"  : array(["lx", "ly/2 - width/2"])
+           },
+           
+           "y" : {
+               "init" : array(["lx/2 - width/2", 0]), 
+               "iter" : array([0, 1]), 
+               "next" : array([1, 0]),
+               "end"  : array(["lx/2 - width/2", "ly"])
            }
-    
+               
     }    
     
     allPos = []
@@ -65,51 +69,60 @@ class plcDist():
         #Make a copy of all the keys and initialize empty lists
         self.positions={}
         self.allKeys = tableParser.meshSpecs.keys()        
-        
-        for key in self.allKeys:
-            self.positions[key] = []
-        
-        self.keys = self.positions.keys()
-        
+ 
         for pos in positions:
             place, align = pos.split()
             
             if align not in tableParser.meshSpecs[place]:
                 raise Exception("Unable to perform placement at %s" % pos)
             else:
-                self.positions[place].append(align)
-            
+                if place in self.positions.keys():
+                    self.positions[place].append(align)
+                else:
+                    self.positions[place] = [align]
+                    
+        self.keys = self.positions.keys()
         
         for key, value in self.nav.items():
-            print key
+
             for _key, _value in value.items():
                 tmp = zeros(shape=_value.shape)
                 
-                for i, element in enumerate(_value):                    
-                    if element in tableParser.knownSubs.keys():
-                        
-                        tmp[i] = eval(tableParser.knownSubs[element])
-
+                for i, element in enumerate(_value):
+                    
+                    doEval = False
+   
+                    if type(element) is string_:
+                        doEval = True
+                        for __key in tableParser.knownSubs.keys():   
+              
+                            if __key in element:
+                                element = element.replace(__key, tableParser.knownSubs[__key])
+                
+                    if doEval:
+                        tmp[i] = eval(element)
                     else:
-                        
                         tmp[i] = element
 
                 self.nav[key][_key] = tmp.copy()                        
                         
-                print _key, self.nav[key][_key]
+
             
             
         self.curStep = 0
         self.keyIndex = 0
         self.subKeyIndex = 0
-    
+        print "LEN KEYS", len(self.keys)
     def isOccupied(self, pos):
         
+        posWithBounds = self.mesh.checkNewPos(pos)
+        thresh = self.separation*(1 - 1E-3)       
+        
         for setPos in self.allPos:
-  
-            if self.arrayLength(pos - setPos) < self.separation:
-                print "Occupied at pos: ", pos
-                True
+            
+            if self.arrayLength(posWithBounds - setPos) < thresh or self.arrayLength(pos - setPos) < thresh:
+#                print "Occupied at pos: ", pos, self.arrayLength(pos - setPos), "from", setPos
+                return True
                 
         return False
         
@@ -118,20 +131,22 @@ class plcDist():
         
         return sqrt((a**2).sum())
     
-    def next(self):
+    def __call__(self, **kwargs):
+        
         
         ### DEBUG
-        out = "%s %s\n" % tuple(self.mesh.shape)    
-        
-        for pos in self.allPos:
-            out += "%g %g\n" % (pos[0], pos[1])
-
-        with open(join(getcwd(), "MD_out1337.dat"), "w") as f:
-            f.write(out)        
-        ####
-        
-        print "----"
-        raw_input()
+#        out = "%s %s\n" % tuple(self.mesh.shape)    
+#        
+#        for pos in self.allPos:
+#            out += "%g %g\n" % (pos[0], pos[1])
+#
+#        with open(join(getcwd(), "MD_out1337.dat"), "w") as f:
+#            f.write(out)        
+#        ####
+#        
+#        print "----"
+##        if self.keyIndex == 1:
+#        raw_input()
         
         
         
@@ -139,19 +154,20 @@ class plcDist():
         nav = self.nav[key]
         
         #Calculate the lineSize and width in indexes
-        lineSize = self.arrayLength(nav["end"] - nav["init"])/self.separation #Number of indexes on a line
+        lineSize = self.arrayLength(nav["end"] - nav["init"])/self.separation + 1 #Number of indexes on a line
         
         #Curindex = widthPos*lineSize + linePos
         linePos = self.curStep%lineSize #Position along the line
         widthPos = (self.curStep - linePos)/lineSize #Position along the width
         
-        lastIndex = self.thickness*lineSize
+        lastIndex = self.thickness*lineSize - 1
         
-        print linePos, "out of", lineSize        
-        print widthPos, "out of", self.thickness       
+#        print linePos, "out of", lineSize        
+#        print widthPos, "out of", self.thickness       
+#        print self.curStep, "out of", lastIndex
         
         #Iterate the indexes and keys
-        if self.curStep > lastIndex:
+        if self.curStep == lastIndex:
             self.curStep = 0
             
             if self.subKeyIndex == len(self.positions[self.keys[self.keyIndex]]) - 1:
@@ -163,11 +179,13 @@ class plcDist():
                     
             else:
                 self.subKeyIndex += 1
+        else:
+            self.curStep += 1
                 
         
         pos = nav["init"] + self.separation*(nav["iter"]*linePos + nav["next"]*widthPos)
-        self.curStep += 1
-        print "trying to place", pos
+        
+#        print "trying to place", pos
         
         if self.isOccupied(pos):
             return None
@@ -176,17 +194,17 @@ class plcDist():
             return pos
         
         
-        return array([uniform(0, self.mesh.lx), uniform(0, self.mesh.ly)]) ##DUMMY
             
             
 
-class tableParser():
+class tableParser:
     
     anyNumber = "\-?\d+\.?\d*[eE]?[+-]?\d*\.?\d*"
     knownSubs = {
                  "lx" : "self.mesh.lx", 
                  "ly" : "self.mesh.ly", 
-                 "lz" : "self.mesh.lz"
+                 "lz" : "self.mesh.lz",
+                 "width" : "self.thickness*self.separation"
     }
     
     
@@ -222,18 +240,57 @@ class tableParser():
     
     nInputAtoms = 6
 
-    def __init__(self, mesh, N):
+    def __init__(self, ensemble, mesh, N):
         
         self.mesh = mesh        
+        
+        self.ensemble = ensemble
         
         self.N = N        
         
  
-    
+    def setEnsembleValues(self, prop):
+
+        nFixed = nFree = freeSigmas = fixedSigmas = None
+        
+        if "fixed" not in prop.keys():
+            nFixed = 0
+        else:
+            
+            try:
+                nFixed = prop["fixed"]["nSpecies"]
+                setattr(self.ensemble, "nFixed", )
+            except:
+                nFixed = 1
+                
+            fixedSigmas = prop["fixed"]["sigmas"]
+
+        if "free" not in prop.keys():
+            nFree = 0
+        else:
+            
+            try:
+                nFree = prop["free"]["nSpecies"]
+            except:
+                nFree = 1
+                
+            freeSigmas = prop["free"]["sigmas"]
+            
+
+        setattr(self.ensemble, "nFixed", nFixed)
+        setattr(self.ensemble, "nFree", nFree)
+        setattr(self.ensemble, "fixedSigmas", fixedSigmas)
+        setattr(self.ensemble, "freeSigmas", freeSigmas)
+        
+        
+                    
+            
     
     def unpackMix(self, mixProp):
         
         mixProp = self.getValuesConstraitsEvents(mixProp)
+        
+        self.setEnsembleValues(mixProp)
                         
         mixTable = self.initializeTable(mixProp)
         
@@ -242,86 +299,158 @@ class tableParser():
         
     def initializeTable(self, mixProp):
         
-        table = self.unpackStickies(mixProp["fixed"])
+        table = self.unpackProps(mixProp["fixed"], sticky = True)
         
-        
-        
+        table = self.unpackProps(mixProp["free"], sticky = False, appendTo = table)
         
         return table
     
+
+    def getNCapFromProps(self, props, prevTable):
+        
+            fraction  = props["fraction"]    
+              
+            if fraction == "automatic" or fraction == "remaining":
+                m = self.N - len(prevTable or [])
+                
+                return (m > 0 and m) or 0
+
+                    
+            elif type(fraction) in [float, int]:
+                    
+                if 1 < fraction or fraction < 0: 
+                    raise Exception("Fraction must be on [0, 1], got %g" % fraction)
+                
+                return int(self.N*fraction)
+                
+            else: 
+                raise Exception("Unknown fraction model: ", fraction)
     
-    def unpackStickies(self, stickyProps, appendTo=None):
     
-        stickyTable = []
+    
+    def getVelAndPosSpecsFromProps(self, props):
         
-        positions = stickyProps["positions"]
-        partition = stickyProps["partition"]
-        fraction  = stickyProps["fraction"]
-        thickness = stickyProps["thickness"]
-        separation= stickyProps["separation"]        
+        try:
+            positions = props['positions']
+        except:
+            positions = RNGFunctions.randomOnMesh(self.mesh)
         
-        nCap = self.N
+        try:
+            velIter = props['velocities']
+        except:
+            velIter = RNGFunctions.allZero()
         
-        if fraction != "automatic":
+        try:
+            separation = props['separation']
+        except:
+            separation = 4*(sum(self.mesh.shape))/self.N
+        
+        try:
+            thickness = props['thickness']
+        except:
+            thickness = 1
             
-            if 1 < fraction or fraction < 0: 
-                raise Exception("Fraction must be on [0, 1]")
-            elif fraction == 0:
-                return []
-            
-                        
-            
-            nCap = int(nCap*fraction)
+        return positions, velIter, separation, thickness
+    
+    
+    
+    def getPosAndVelIterators(self, props):
         
-        
-      
+    
+        positions, velIter, separation, thickness = self.getVelAndPosSpecsFromProps(props)
+                
         
         if type(positions) != list:
-            if "random" in positions:
+            if type(positions) is str:
                 
-                try:
-                    rngStr = positions.split()[1] 
-                except:
-                    rngStr = "uniform"          
-                    
-                try:
-                    rng = eval(rngStr)
-                except:
-                    raise Exception("Unknown rng: " % rngStr)
+                posIter = plcDist(self.mesh, thickness, separation, positions)
                 
-                posIter = ranDist(rng, size=self.mesh.dim) ## Fix input bredde etc.
+            elif isinstance(positions, RNGFunctions.RNGs):
+                
+                posIter = positions
                     
             else:
-                posIter = plcDist(self.mesh, thickness, separation, positions)
+    
+                raise Exception("Undefined position argument", positions)                
+                
+                
         else:
             posIter = plcDist(self.mesh, thickness, separation, *positions)
+    
+    
+        return posIter, velIter    
+    
+    def getPartFuncFromProps(self, props):
+        
+        try:
+            nSpecies = props["nSpecies"]
+        except:
+            nSpecies = 1
+        
+        try:
+            partition = props["partition"]
+        except:
+            partition = "random"
+        
+        if partition == "cyclic":
+            partFunc = lambda i: i%nSpecies
+        elif partition == "random":
+            partFunc = lambda i: randint(0, nSpecies-1)
+        else:
+            raise Exception("Unknown partition function", partition)
+        
+        return partFunc
+            
+    
+    def getObjectProps(self, props, partFunc, n):
+        
+        i = partFunc(n)
+        
+        sigma = props["sigmas"][i]
+        eps = props["epses"][i]
+        mass = props["masses"][i] 
+    
+        return sigma, eps, mass    
+    
+    def unpackProps(self, props, sticky, appendTo=None):
+    
+        table = []
+    
+        nCap = self.getNCapFromProps(props, appendTo)
+        
+        if nCap == 0:
+            return appendTo or []
+        
+        posIter, velIter = self.getPosAndVelIterators(props)
+        partFunc = self.getPartFuncFromProps(props)
                 
         n = 0
         
         while n < nCap:
             
+            sigma, eps, mass = self.getObjectProps(props, partFunc, n)            
+
+            
             newPos = None
             while newPos is None and not posIter.finished:
-                newPos = posIter.next()
+                newPos = posIter(sigma=sigma, eps=eps, mass=mass)
             
             if posIter.finished:
                 break
             
-            newVel = normal(size=self.mesh.dim)
-
-            sigma = stickyProps["sigmas"][0]
-            eps = stickyProps["epses"][0]
-            mass = stickyProps["masses"][0]            
+            newVel = velIter(sigma=sigma, eps=eps, mass=mass)
             
-            stickyTable.append([False, sigma, eps, mass, newPos, newVel])
-      
+            
+            table.append([sticky, sigma, eps, mass, newPos, newVel])
+            
+#            print "n=", n
             n += 1
-        print "done"
+#        print "done"
             
         
         if appendTo:
-            return appendTo + stickyTable
-        return stickyTable
+            return appendTo + table
+        return table
         
         
         
@@ -348,7 +477,7 @@ class tableParser():
                                 self.getInfo(parsekey, mixProp[key][parsekey])
     
                 #apply relfunc and asfunc     
-                print pdk[parsekey]                           
+#                print pdk[parsekey]                           
                 if pdk[parsekey] == "numbers":
                     for i, number in enumerate(mixProp[key][parsekey]):
                         if type(number) is str:
@@ -478,15 +607,15 @@ class tableParser():
     def relFunction(self, expr, _list=None):
         
         
-        print "---"
-        print expr
+#        print "---"
+#        print expr
         pattern = "rel\s(%s)\s(%s)" % ("%s|%s" % (self.anyNumber, "|".join(self.knownSubs.keys())), self.anyNumber)
-        print pattern
+#        print pattern
         _id, scale = re.findall(pattern, expr)[0]
         
         scale = float(scale)
         
-        print _id, scale
+#        print _id, scale
         if _id and _id in self.knownSubs.keys(): #parameter
             
             return eval(self.knownSubs[_id])*scale

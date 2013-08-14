@@ -2,7 +2,12 @@
 import os, signal, glob, shutil
 from os.path import join
 
-from DCVizWrapper import DCVizThread
+useDCViz = False
+try:
+    from DCVizWrapper import DCVizThread
+    useDCViz = True
+except:
+    pass
 
 from __init__ import controlParameters
 
@@ -21,8 +26,11 @@ class MDApp():
         self.cwd = os.getcwd()            
         self.cleanFiles()
         
-        self.makeDCVizFile()        
-        self.DCVizApp = DCVizThread(join(self.cwd, "MD_out0.dat"), True, False, delay = 0.1)
+        self.makeDCVizFile()    
+        
+        if useDCViz:
+            self.DCVizApp = DCVizThread(join(self.cwd, "MD_out0.dat"), True, False, delay = 0.1)
+        
         
         
         signal.signal(signal.SIGINT, self.signal_handler)        
@@ -43,9 +51,11 @@ class MDApp():
     def run(self, T):
         
         n = int(T/self.dt)
-        self.DCVizApp.start() 
+        if useDCViz:
+            self.DCVizApp.start() 
         
         i = 0
+        raw_input()
         while i < n and not self.stopped:
 
             self.integrator.updateAtoms(self.ensemble)
@@ -53,9 +63,9 @@ class MDApp():
             self.ensemble.getKineticEnergy()
             self.ensemble.checkLinearMomentum()
             
-            if (i % 100 == 0):
-                self.makeDCVizFile(i)
-                print "%d%%" % int((i+1.) / n * 100)   
+        
+            self.makeDCVizFile(i)
+            print "%d%%" % int((i+1.) / n * 100)   
 
             i += 1
             
@@ -63,8 +73,9 @@ class MDApp():
         
         
         
-    def clean(self):    
-        self.DCVizApp.stop()
+    def clean(self): 
+        if useDCViz:
+                self.DCVizApp.stop()
 
 
     def makeDCVizFile(self, i=0):
@@ -72,7 +83,7 @@ class MDApp():
         out = "%s %s\n" % tuple(self.mesh.shape)    
         
         for atom in self.ensemble.atoms:
-            out += "%g %g\n" % (atom.pos[0], atom.pos[1])
+            out += "%d %g %g\n" % (self.ensemble.getColor(atom), atom.pos[0], atom.pos[1])
 
         with open(join(self.cwd, "MD_out%d.dat" % i), "w") as f:
             f.write(out)

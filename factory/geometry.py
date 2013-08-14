@@ -35,7 +35,7 @@ class rectMesh():
             if not self.p[i]:
                 continue
             
-            if pos[i] > self.shape[i]:
+            if pos[i] >= self.shape[i]:
                 if self.p[i]:
                     pos[i] = pos[i]%self.shape[i]
                 else:

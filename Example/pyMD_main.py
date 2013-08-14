@@ -3,10 +3,13 @@ from pyMD.core import simulator, forceModels, integrators
 
 from pyMD.factory import atoms, geometry
 
+from pyMD.misc.RNGFunctions import randomOnMesh, normalFromTermperature
 
-shape = [2, 4]
+
+shape = [1, 2]
 periodicity = [False, True]
-N = 100
+T = 1
+N = 200
 
 mesh = geometry.rectMesh(periodicity, shape)
 
@@ -20,12 +23,12 @@ particleMixTable = {
                     "free" : {
                                 "fraction"  : "remaining",
                                 "nSpecies"  : 2,
-                                "sigmas"    : [0.1, "rel 0 1e-5"],
-                                "epses"     : [1, "as 0"],
-                                "masses"    : [1, "as 0"],
+                                "sigmas"    : [0.0001, "rel 0 0.99"],
+                                "epses"     : [0.0001, "rel 0 0.99"],
+                                "masses"    : [1, "rel 0 0.99"],
                                 
-                                "positions" : "random uniform",
-                                "velocities": "random normal"
+                                "positions" : randomOnMesh(mesh),
+                                "velocities": normalFromTermperature(T, len(shape))
                                 
                     },
                              
@@ -44,20 +47,20 @@ particleMixTable = {
                                 "positions" : [
                                                "boundary l", 
                                                "boundary r",
-                                               "boundary t",
-                                               "boundary b",
-                                               "centerline x"
+#                                               "boundary t",
+#                                               "boundary b",
+#                                               "centerline x"
                                               ],
                                               
-                                "thickness"  : 4,
-                                "separation" : "rel ly 0.05"
+                                "thickness"  : 1,
+                                "separation" : "rel ly 0.02"
                     
                     }
 
 }
             
 
-dt = 1e-5
+dt = 1e-15
 T = 100000*dt
 
 #integrator = integrators.EulerCramer(dt)
