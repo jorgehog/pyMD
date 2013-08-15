@@ -1,26 +1,28 @@
 
-from numpy import empty, random as npRandom, array, zeros
-
-from random import uniform
+from numpy import empty, zeros
 
 from pyMD.misc.parser import tableParser
 
-import sys
-
-
-class atom():
+class atom:
+        
+    def __init__(self):
+        
+        self.initialized = False
         
     def initialize(self, mesh, sticky, sigma, eps, mass, initPos, initVel):
         
         self.sigma, self.eps, self.mass = sigma, eps, mass
         
         self.sticky = sticky
+        
+        self.mesh = mesh
     
         self.pos = initPos
         self.vel = initVel
         self.force = empty(mesh.dim)
         
-        self.mesh = mesh       
+        self.initialized = True
+         
 
     def incrementVel(self, dV):
         
@@ -28,7 +30,7 @@ class atom():
     
     def incrementPos(self, dR):
         
-        self.pos = self.mesh.checkNewPos(self.pos + dR)
+        self.pos = self.mesh.checkNewPos(self.pos + dR, self.vel)
         
     def updateForce(self, newForce):
         
@@ -37,6 +39,8 @@ class atom():
     def resetForce(self):
         
         self.force.fill(0)
+        
+
 
    
 
@@ -53,10 +57,10 @@ class ensemble():
     def initialize(self, mixingProperties, mesh):
         
         self.mesh = mesh
-        mixTable = self.unpackMix(mixingProperties)  
-      
-        for i, _atom in enumerate(self.atoms):
-            _atom.initialize(mesh, *mixTable[i])
+        
+        unpacker = tableParser(self, mesh, self.N)
+        
+        unpacker.unpackMix(mixingProperties)
             
         self.cancelLinearMomentum()
         
@@ -66,14 +70,6 @@ class ensemble():
         
     def setSimulator(self, sim):
         self.simulator = sim
-    
-    def unpackMix(self, mixProp):
-        
-        unpacker = tableParser(self, self.mesh, self.N)
-        
-        table = unpacker.unpackMix(mixProp)
-        
-        return table
     
     def getColor(self, atom):
         
@@ -85,8 +81,11 @@ class ensemble():
         return sigmas.index(atom.sigma)        
         
     def getRelPos(self, atom1, atom2):
+        
+            
         #SMARTIFY THIS
     
+     
         minRelPos = atom1.pos - atom2.pos
         minRelPos2 = (minRelPos**2).sum()
 
@@ -132,8 +131,8 @@ class ensemble():
                 
                 force = self.forceModel.calculateForce(atom1, atom2, relPos, relPos2)
                 
-                atom1.updateForce(force)
-                atom2.updateForce(-force)
+                atom1.updateForce(-force)
+                atom2.updateForce(+force)
          
         self.checkForces()
   
@@ -175,9 +174,9 @@ class ensemble():
         
         for ei in S:
             if ei > 1E-8:
-                print "Round-off errors in forcesum. %g Breaking simulation" % ei
-  
-                self.simulator.stopped = True
+                print "Round-off errors in forcesum. %g Pausing simulation" % ei
+                raw_input()
+#                self.simulator.stopped = True
 
                 
     def checkLinearMomentum(self):
@@ -185,8 +184,8 @@ class ensemble():
         pTot = self.getTotalLinearMomentum()[0].sum() 
         
         if pTot > 1E-10:
-            print "Total linear momentum is not zero. %g Breaking simulation" % pTot
-
+            print "Total linear momentum is not zero. %g Pausing simulation" % pTot
+            raw_input()
                 
     def getKineticEnergy(self):
         
@@ -198,8 +197,7 @@ class ensemble():
             Ek += 0.5*_atom.mass*(_atom.vel**2).sum()
             
         self.checkKineticEnergy(Ek)
-                
-        return Ek
+        
 
     
     def checkKineticEnergy(self, Ek):
@@ -208,11 +206,11 @@ class ensemble():
             self.EkPrev = Ek
                 
         else:
-            if abs(Ek - self.EkPrev) > 1e-3:
-                print "Energy not conserved. %g / %g Breaking simulation" % (self.EkPrev, Ek)
+            if abs(Ek/self.EkPrev - 1) > 0.1:
+                print "Energy not conserved. %g / %g Pausingsimulation" % (self.EkPrev, Ek)
+                raw_input()
+#                self.simulator.stopped = True
                 
-                self.simulator.stopped = True
-                
-            else:
-                self.EkPrev = Ek       
+            
+            self.EkPrev = Ek       
         

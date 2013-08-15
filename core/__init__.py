@@ -1,5 +1,5 @@
 
-__all__ = ["simulator", "forceModels", "integrators"]
+__all__ = ["simulator", "forceModels", "integrators", "thermostats"]
 
 
 controlParameters = {

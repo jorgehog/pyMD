@@ -22,7 +22,15 @@ class LennardJones(forceModel):
         
         return 4*eps*(sigmaOverR6**2 - sigmaOverR6)*relPos/l       
         
-								
+
+class LennardJonesReduced(forceModel):
+    
+    def calculateForce(self, atom1, atom2, relPos, relPos2):
+        
+        sigmaOverR6 = (1/relPos2)**3
+        
+        return 4*(sigmaOverR6**2 - sigmaOverR6)*relPos/sqrt(relPos2)
+						
 
 class CoulombLike(forceModel):
     

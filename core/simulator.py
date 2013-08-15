@@ -29,7 +29,7 @@ class MDApp():
         self.makeDCVizFile()    
         
         if useDCViz:
-            self.DCVizApp = DCVizThread(join(self.cwd, "MD_out0.dat"), True, False, delay = 0.1)
+            self.DCVizApp = DCVizThread(join(self.cwd, "DCVizFiles", "MD_out0.dat"), True, False, delay = 0.1)
         
         
         
@@ -41,11 +41,13 @@ class MDApp():
         
     def cleanFiles(self):
         
+        os.chdir(join(self.cwd, "DCVizFiles"))
         files = glob.glob("MD_out*.dat")
 
-        for _file in [join(self.cwd, __file) for __file in files]:
+        for _file in [join(self.cwd, "DCVizFiles", __file) for __file in files]:
             os.remove(_file)
-        
+            
+        os.chdir(self.cwd)
         
     
     def run(self, T):
@@ -54,9 +56,9 @@ class MDApp():
         if useDCViz:
             self.DCVizApp.start() 
         
-        i = 0
-        raw_input()
-        while i < n and not self.stopped:
+        i = 1
+        
+        while i <= n and not self.stopped:
 
             self.integrator.updateAtoms(self.ensemble)
 
@@ -83,9 +85,12 @@ class MDApp():
         out = "%s %s\n" % tuple(self.mesh.shape)    
         
         for atom in self.ensemble.atoms:
-            out += "%d %g %g\n" % (self.ensemble.getColor(atom), atom.pos[0], atom.pos[1])
+            if atom.sticky:
+                out += "%d %g %g %g %g\n" % (self.ensemble.getColor(atom), atom.pos[0], atom.pos[1], 0, 0)
+            else:
+                out += "%d %g %g %g %g\n" % (self.ensemble.getColor(atom), atom.pos[0], atom.pos[1], atom.vel[0], atom.vel[1])
 
-        with open(join(self.cwd, "MD_out%d.dat" % i), "w") as f:
+        with open(join(self.cwd, "DCVizFiles", "MD_out%d.dat" % i), "w") as f:
             f.write(out)
 
 

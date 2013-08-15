@@ -1,7 +1,6 @@
 
 import re
-from os.path import join
-from os import getcwd
+
 from math import sqrt
 from numpy import array, zeros, string_
 from random import randint        
@@ -42,17 +41,17 @@ class plcDist():
            },
            
            "x" : {
-               "init" : array([0, "ly/2 - width/2"]), 
+               "init" : array([0, "ly/2. - width/2."]), 
                "iter" : array([1, 0]), 
                "next" : array([0, 1]),
-               "end"  : array(["lx", "ly/2 - width/2"])
+               "end"  : array(["lx", "ly/2. - width/2."])
            },
            
            "y" : {
-               "init" : array(["lx/2 - width/2", 0]), 
+               "init" : array(["lx/2. - width/2.", 0]), 
                "iter" : array([0, 1]), 
                "next" : array([1, 0]),
-               "end"  : array(["lx/2 - width/2", "ly"])
+               "end"  : array(["lx/2. - width/2.", "ly"])
            }
                
     }    
@@ -112,7 +111,8 @@ class plcDist():
         self.curStep = 0
         self.keyIndex = 0
         self.subKeyIndex = 0
-        print "LEN KEYS", len(self.keys)
+        
+        
     def isOccupied(self, pos):
         
         posWithBounds = self.mesh.checkNewPos(pos)
@@ -223,7 +223,7 @@ class tableParser:
                 "epses"     : ["numbers%len=nSpecies"],
                 "masses"    : ["numbers%len=nSpecies"],
                 
-                "partition" : ["cyclic"],
+                "partition" : ["cyclic", "random"],
                 "positions" : ["random __method__", 
                                "list%elements=meshSpecs"],
                 "velocities": ["random __method__"],
@@ -247,6 +247,8 @@ class tableParser:
         self.ensemble = ensemble
         
         self.N = N        
+        
+        self.nInitialized = 0
         
  
     def setEnsembleValues(self, prop):
@@ -292,26 +294,24 @@ class tableParser:
         
         self.setEnsembleValues(mixProp)
                         
-        mixTable = self.initializeTable(mixProp)
+        self.initializeTable(mixProp)
         
-        
-        return mixTable
         
     def initializeTable(self, mixProp):
         
         table = self.unpackProps(mixProp["fixed"], sticky = True)
         
-        table = self.unpackProps(mixProp["free"], sticky = False, appendTo = table)
+        table = self.unpackProps(mixProp["free"], sticky = False)
         
         return table
     
 
-    def getNCapFromProps(self, props, prevTable):
+    def getNCapFromProps(self, props):
         
             fraction  = props["fraction"]    
               
             if fraction == "automatic" or fraction == "remaining":
-                m = self.N - len(prevTable or [])
+                m = self.N - self.nInitialized
                 
                 return (m > 0 and m) or 0
 
@@ -412,14 +412,12 @@ class tableParser:
     
         return sigma, eps, mass    
     
-    def unpackProps(self, props, sticky, appendTo=None):
+    def unpackProps(self, props, sticky):
     
-        table = []
-    
-        nCap = self.getNCapFromProps(props, appendTo)
+        nCap = self.getNCapFromProps(props)
         
         if nCap == 0:
-            return appendTo or []
+            return
         
         posIter, velIter = self.getPosAndVelIterators(props)
         partFunc = self.getPartFuncFromProps(props)
@@ -430,27 +428,37 @@ class tableParser:
             
             sigma, eps, mass = self.getObjectProps(props, partFunc, n)            
 
+            print nCap, n, self.nInitialized, self.N
             
             newPos = None
             while newPos is None and not posIter.finished:
-                newPos = posIter(sigma=sigma, eps=eps, mass=mass)
+                newPos = posIter(sigma=sigma, eps=eps, mass=mass, ensemble=self.ensemble, dim=self.mesh.dim)
             
             if posIter.finished:
                 break
             
-            newVel = velIter(sigma=sigma, eps=eps, mass=mass)
+            newVel = velIter(sigma=sigma, eps=eps, mass=mass, ensemble=self.ensemble, dim=self.mesh.dim)
             
             
-            table.append([sticky, sigma, eps, mass, newPos, newVel])
+            self.ensemble.atoms[self.nInitialized].initialize(self.mesh, 
+                                                              sticky, 
+                                                              sigma, 
+                                                              eps, 
+                                                              mass, 
+                                                              newPos, 
+                                                              newVel)
+                                                              
+#            table.append([sticky, sigma, eps, mass, newPos, newVel])
             
 #            print "n=", n
+            self.nInitialized += 1
             n += 1
 #        print "done"
             
         
-        if appendTo:
-            return appendTo + table
-        return table
+#        if appendTo:
+#            return appendTo + table
+#        return table
         
         
         

@@ -3,13 +3,13 @@ from pyMD.core import simulator, forceModels, integrators
 
 from pyMD.factory import atoms, geometry
 
-from pyMD.misc.RNGFunctions import randomOnMesh, normalFromTermperature
+from pyMD.misc.RNGFunctions import randomOnMesh, normalFromTermperature, allZero
 
 
-shape = [1, 2]
+shape = [1E-9, 2*1E-9]
 periodicity = [False, True]
-T = 1
-N = 200
+T = 100
+N = 250
 
 mesh = geometry.rectMesh(periodicity, shape)
 
@@ -23,19 +23,23 @@ particleMixTable = {
                     "free" : {
                                 "fraction"  : "remaining",
                                 "nSpecies"  : 2,
-                                "sigmas"    : [0.0001, "rel 0 0.99"],
-                                "epses"     : [0.0001, "rel 0 0.99"],
-                                "masses"    : [1, "rel 0 0.99"],
+                                "sigmas"    : [3.405E-10, "rel 0 0.99"],
+                                "epses"     : [119.8*1.38E-23, "rel 0 0.99"],
+                                "masses"    : [18*1E-27, "rel 0 0.99"],
                                 
-                                "positions" : randomOnMesh(mesh),
-                                "velocities": normalFromTermperature(T, len(shape))
+                                "positions" : randomOnMesh(),
+                                "velocities": normalFromTermperature(T),
+#                                "velocities": allZero(),
                                 
+                                "partition" : "cyclic"
+                                    
                     },
                              
                              
                     "fixed" : {
     
                                 "fraction"  : "automatic",
+#                                "fraction" : 0,
                                 
                                 "nSpecies"  : "as free",                           
                                 "sigmas"    : "as free",
@@ -52,7 +56,7 @@ particleMixTable = {
 #                                               "centerline x"
                                               ],
                                               
-                                "thickness"  : 1,
+                                "thickness"  : 2,
                                 "separation" : "rel ly 0.02"
                     
                     }
@@ -60,8 +64,8 @@ particleMixTable = {
 }
             
 
-dt = 1e-15
-T = 100000*dt
+dt = 1e-16
+T = 1000*dt
 
 #integrator = integrators.EulerCramer(dt)
 integrator = integrators.VelocityVerlet(dt)
@@ -77,9 +81,6 @@ app.run(T)
 
 """
 Parser:
--placement from rectMesh
--placement from random
--unify without stickies split?
 -work with events.
 -check constraints. autofix them?
 -Get working with different species.
