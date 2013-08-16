@@ -17,7 +17,7 @@ class LennardJones(forceModel):
         eps = sqrt(atom2.eps*atom1.eps)
         
         l = sqrt(relPos2)
-        
+#        print l/sigma
         sigmaOverR6 = (sigma*sigma/relPos2)**3      
         
         return 4*eps*(sigmaOverR6**2 - sigmaOverR6)*relPos/l       

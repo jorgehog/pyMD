@@ -154,7 +154,7 @@ class plcDist():
         nav = self.nav[key]
         
         #Calculate the lineSize and width in indexes
-        lineSize = self.arrayLength(nav["end"] - nav["init"])/self.separation + 1 #Number of indexes on a line
+        lineSize = int(self.arrayLength(nav["end"] - nav["init"])/self.separation) + 1 #Number of indexes on a line
         
         #Curindex = widthPos*lineSize + linePos
         linePos = self.curStep%lineSize #Position along the line
@@ -253,34 +253,14 @@ class tableParser:
  
     def setEnsembleValues(self, prop):
 
-        nFixed = nFree = freeSigmas = fixedSigmas = None
+        freeSigmas = fixedSigmas = None
         
-        if "fixed" not in prop.keys():
-            nFixed = 0
-        else:
-            
-            try:
-                nFixed = prop["fixed"]["nSpecies"]
-                setattr(self.ensemble, "nFixed", )
-            except:
-                nFixed = 1
-                
+        if "fixed" in prop.keys():
             fixedSigmas = prop["fixed"]["sigmas"]
 
-        if "free" not in prop.keys():
-            nFree = 0
-        else:
-            
-            try:
-                nFree = prop["free"]["nSpecies"]
-            except:
-                nFree = 1
-                
+        if "free" in prop.keys():
             freeSigmas = prop["free"]["sigmas"]
             
-
-        setattr(self.ensemble, "nFixed", nFixed)
-        setattr(self.ensemble, "nFree", nFree)
         setattr(self.ensemble, "fixedSigmas", fixedSigmas)
         setattr(self.ensemble, "freeSigmas", freeSigmas)
         
@@ -293,17 +273,18 @@ class tableParser:
         mixProp = self.getValuesConstraitsEvents(mixProp)
         
         self.setEnsembleValues(mixProp)
-                        
+        
         self.initializeTable(mixProp)
         
         
     def initializeTable(self, mixProp):
         
-        table = self.unpackProps(mixProp["fixed"], sticky = True)
+        self.unpackProps(mixProp["fixed"], sticky = True)
+        setattr(self.ensemble, "nFixed", self.nInitialized)
         
-        table = self.unpackProps(mixProp["free"], sticky = False)
-        
-        return table
+        self.unpackProps(mixProp["free"], sticky = False)
+        setattr(self.ensemble, "nFree", self.nInitialized - self.ensemble.nFixed)
+
     
 
     def getNCapFromProps(self, props):
@@ -343,7 +324,7 @@ class tableParser:
         try:
             separation = props['separation']
         except:
-            separation = 4*(sum(self.mesh.shape))/self.N
+            separation = min(self.mesh.shape)/self.N
         
         try:
             thickness = props['thickness']

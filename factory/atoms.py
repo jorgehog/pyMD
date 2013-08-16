@@ -2,6 +2,7 @@
 from numpy import empty, zeros
 
 from pyMD.misc.parser import tableParser
+from pyMD.misc import sampler
 
 class atom:
         
@@ -44,14 +45,15 @@ class atom:
 
    
 
-class ensemble():
+class ensemble:
     
-    def __init__(self, N, forceModel):
+    def __init__(self, N, forceModel, T):
         
         self.atoms = [atom() for i in range(N)]
         self.forceModel = forceModel
         self.N = N
         self.EkPrev = None
+        self.T = T
         
         
     def initialize(self, mixingProperties, mesh):
@@ -131,8 +133,8 @@ class ensemble():
                 
                 force = self.forceModel.calculateForce(atom1, atom2, relPos, relPos2)
                 
-                atom1.updateForce(-force)
-                atom2.updateForce(+force)
+                atom1.updateForce(force)
+                atom2.updateForce(-force)
          
         self.checkForces()
   
@@ -175,7 +177,7 @@ class ensemble():
         for ei in S:
             if ei > 1E-8:
                 print "Round-off errors in forcesum. %g Pausing simulation" % ei
-                raw_input()
+#                raw_input()
 #                self.simulator.stopped = True
 
                 
@@ -185,20 +187,19 @@ class ensemble():
         
         if pTot > 1E-10:
             print "Total linear momentum is not zero. %g Pausing simulation" % pTot
-            raw_input()
+#            raw_input()
                 
     def getKineticEnergy(self):
         
-        Ek = 0    
-        for _atom in self.atoms:
-            if _atom.sticky:
-                continue
-            
-            Ek += 0.5*_atom.mass*(_atom.vel**2).sum()
+        Ek = sampler.getKineticEnergy(self.atoms)
             
         self.checkKineticEnergy(Ek)
         
+    def getTemperature(self):
 
+            self.T = sampler.getTemperature(self.atoms, N=self.nFree, Ek=self.EkPrev)
+            
+            
     
     def checkKineticEnergy(self, Ek):
         
@@ -208,7 +209,7 @@ class ensemble():
         else:
             if abs(Ek/self.EkPrev - 1) > 0.1:
                 print "Energy not conserved. %g / %g Pausingsimulation" % (self.EkPrev, Ek)
-                raw_input()
+#                raw_input()
 #                self.simulator.stopped = True
                 
             

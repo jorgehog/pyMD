@@ -1,6 +1,8 @@
 
-import os, signal, glob, shutil
+import os, signal, glob
 from os.path import join
+from pyMD.core import thermostats
+
 
 useDCViz = False
 try:
@@ -13,12 +15,20 @@ from __init__ import controlParameters
 
 class MDApp():
     
-    def __init__(self, dt, mesh, atoms, mixTable, integrator):
+    regions = []
+    fields = []
+    
+    def __init__(self, dt, mesh, atoms, mixTable, integrator, thermostat = None):
         
         self.dt = dt
         self.mesh = mesh
         self.ensemble = atoms
         self.integrator = integrator
+        
+        if thermostat is None:
+            thermostat = thermostats.noThermostat()
+            
+        self.thermostat = thermostat
   
         self.ensemble.setSimulator(self)
         self.ensemble.initialize(mixTable, self.mesh)
@@ -37,7 +47,12 @@ class MDApp():
         
         self.stopped = False
         
+    def addField(self, field, region):
+
+        field.addRegion(region)
         
+        self.regions.append(region)
+        self.fields.append(field)
         
     def cleanFiles(self):
         
@@ -49,6 +64,18 @@ class MDApp():
             
         os.chdir(self.cwd)
         
+    def updateFields(self):
+
+        for region in self.regions:
+            region.reset()
+            
+        for atom in self.ensemble.atoms:
+            for region in self.regions:
+                region.append(atom)
+        
+        for field in self.fields:
+            field.update()
+    
     
     def run(self, T):
         
@@ -56,14 +83,17 @@ class MDApp():
         if useDCViz:
             self.DCVizApp.start() 
         
-        i = 1
+        i = 0
         
-        while i <= n and not self.stopped:
+        while i < n and not self.stopped:
 
             self.integrator.updateAtoms(self.ensemble)
 
             self.ensemble.getKineticEnergy()
             self.ensemble.checkLinearMomentum()
+            self.ensemble.getTemperature()
+
+            self.updateFields()
             
         
             self.makeDCVizFile(i)
@@ -82,7 +112,7 @@ class MDApp():
 
     def makeDCVizFile(self, i=0):
         
-        out = "%s %s\n" % tuple(self.mesh.shape)    
+        out = "%g %g %g\n%s\n" % (tuple(self.mesh.shape) + (self.ensemble.T,) + (str([obj.T for obj in self.fields]),))    
         
         for atom in self.ensemble.atoms:
             if atom.sticky:
