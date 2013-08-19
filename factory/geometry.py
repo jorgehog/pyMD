@@ -29,11 +29,14 @@ class rectMesh:
     def setShape(self, shape):
    
         self.shape = shape
-   
+        self.volume = shape[0]*shape[1]        
+        
         self.lx, self.ly = shape[:2]        
         
         if self.dim == 3:
             self.lz = shape[2]
+            self.volume*=shape[2]
+            
             
     def checkNewPos(self, pos, vel=None):
 
@@ -63,7 +66,7 @@ class region:
     topology = []    
     atoms = []
     
-    def __init__(self, x0, x1=None, y0=None, y1=None, z0=None, z1=None):
+    def __init__(self, x0, x1=None, y0=None, y1=None, z0=None, z1=None, description = None):
         
         if x1 is not None and (y0 is None or y1 is None):
             raise Exception()
@@ -84,7 +87,23 @@ class region:
             self.topology.append([z0, z1])
     
         self.dim = len(self.topology)
+        
+        self.volume = 1
+        for axis in self.topology:
+            self.volume *= axis
 
+        if not description:
+            description = "V = %g | loc = %s" % (self.volume, str(tuple(self.topology)))
+            
+        self.description = description
+
+    def __eq__(self, other):
+        
+        return self.topology == other.topology
+        
+    def __str__(self):
+        
+        return "<region> %s" % self.description
 
     def append(self, atom):
                 
@@ -137,7 +156,7 @@ def predefinedRegions(name, **kwargs):
                 for j, _k in enumerate(_l):
                     allPredefines[s][i][j] = eval(str(_k))
                     
-        return region(eval(name))
+        return region(eval(name), description=name)
         
                 
         

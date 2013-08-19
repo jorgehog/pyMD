@@ -1,5 +1,5 @@
 
-from numpy import empty, zeros
+from numpy import empty, zeros, dot
 
 from pyMD.misc.parser import tableParser
 from pyMD.misc import sampler
@@ -10,7 +10,7 @@ class atom:
         
         self.initialized = False
         
-    def initialize(self, mesh, sticky, sigma, eps, mass, initPos, initVel):
+    def initialize(self, mesh, N, sticky, sigma, eps, mass, initPos, initVel):
         
         self.sigma, self.eps, self.mass = sigma, eps, mass
         
@@ -21,6 +21,7 @@ class atom:
         self.pos = initPos
         self.vel = initVel
         self.force = empty(mesh.dim)
+        self.virial = zeros(N)
         
         self.initialized = True
          
@@ -54,6 +55,7 @@ class ensemble:
         self.N = N
         self.EkPrev = None
         self.T = T
+        self.pTot = None
         
         
     def initialize(self, mixingProperties, mesh):
@@ -121,9 +123,10 @@ class ensemble:
         for atom in self.atoms:
             atom.resetForce()
         
+        self.virial = 0
         for i, atom1 in enumerate(self.atoms[:-1]):    
     
-            for atom2 in self.atoms[(i+1):]:
+            for j, atom2 in enumerate(self.atoms[(i+1):]):
                 if atom1.sticky and atom2.sticky:
                     continue
            
@@ -133,11 +136,22 @@ class ensemble:
                 
                 force = self.forceModel.calculateForce(atom1, atom2, relPos, relPos2)
                 
+                g_ij = dot(force, relPos)
+                self.virial += g_ij
+
+                atom1.virial[j] = g_ij
+                atom2.virial[i] = g_ij                
+                
                 atom1.updateForce(force)
                 atom2.updateForce(-force)
          
+        self.virial/=(3.0*self.mesh.volume)
+        
         self.checkForces()
-  
+
+    def getPressure(self):
+        
+        return sampler.getPressure(self.atoms, N=self.nFree, V=self.mesh.volume, T=self.T, virial=self.virial)
        
     def getTotalLinearMomentum(self):
         

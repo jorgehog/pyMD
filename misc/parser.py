@@ -422,6 +422,7 @@ class tableParser:
             
             
             self.ensemble.atoms[self.nInitialized].initialize(self.mesh, 
+                                                              self.N,
                                                               sticky, 
                                                               sigma, 
                                                               eps, 

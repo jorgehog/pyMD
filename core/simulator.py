@@ -51,7 +51,10 @@ class MDApp():
 
         field.addRegion(region)
         
-        self.regions.append(region)
+        #Make sure not to perform more than necessary tests if several fields share a region
+        if region not in self.regions:
+            self.regions.append(region)
+            
         self.fields.append(field)
         
     def cleanFiles(self):
@@ -92,6 +95,7 @@ class MDApp():
             self.ensemble.getKineticEnergy()
             self.ensemble.checkLinearMomentum()
             self.ensemble.getTemperature()
+            self.ensemble.getPressure()
 
             self.updateFields()
             
