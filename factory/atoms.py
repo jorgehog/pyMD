@@ -21,7 +21,8 @@ class atom:
         self.pos = initPos
         self.vel = initVel
         self.force = empty(mesh.dim)
-        self.virial = zeros(N)
+        self.virials = zeros(N)
+        self.queuedForce = zeros(mesh.dim)
         
         self.initialized = True
          
@@ -48,15 +49,17 @@ class atom:
 
 class ensemble:
     
-    def __init__(self, N, forceModel, T):
+    def __init__(self, N, forceModel, thermalizer):
         
         self.atoms = [atom() for i in range(N)]
         self.forceModel = forceModel
         self.N = N
         self.EkPrev = None
-        self.T = T
+        self.T = 0
         self.pTot = None
         
+        
+        self.thermalizer = thermalizer
         
     def initialize(self, mixingProperties, mesh):
         
@@ -71,6 +74,12 @@ class ensemble:
         self.getKineticEnergy()       
         
         self.calculateForces()
+        
+    def thermalize(self):
+        
+        self.thermalizer.region.atoms = self.atoms
+        self.thermalizer.update()
+        return self.thermalizer.T
         
     def setSimulator(self, sim):
         self.simulator = sim
@@ -117,11 +126,17 @@ class ensemble:
                 
         return minRelPos, minRelPos2
         
-        
+    def resetForces(self):
+        for atom in self.atoms:
+            atom.force = atom.queuedForce.copy()
+            atom.queuedForce.fill(0)
+  
+    
     def calculateForces(self):
         
-        for atom in self.atoms:
-            atom.resetForce()
+        self.resetForces()
+        
+    
         
         self.virial = 0
         for i, atom1 in enumerate(self.atoms[:-1]):    
@@ -131,16 +146,14 @@ class ensemble:
                     continue
            
                 relPos, relPos2 = self.getRelPos(atom1, atom2)
-#                print "r_rel", relPos
-#                print "v", atom1.vel, atom2.vel
                 
                 force = self.forceModel.calculateForce(atom1, atom2, relPos, relPos2)
                 
                 g_ij = dot(force, relPos)
                 self.virial += g_ij
 
-                atom1.virial[j] = g_ij
-                atom2.virial[i] = g_ij                
+                atom1.virials[j] = g_ij
+                atom2.virials[i] = g_ij                
                 
                 atom1.updateForce(force)
                 atom2.updateForce(-force)
@@ -213,6 +226,9 @@ class ensemble:
 
             self.T = sampler.getTemperature(self.atoms, N=self.nFree, Ek=self.EkPrev)
             
+            return self.T
+    
+        
             
     
     def checkKineticEnergy(self, Ek):

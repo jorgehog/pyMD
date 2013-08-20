@@ -11,7 +11,7 @@ try:
 except:
     pass
 
-from __init__ import controlParameters
+useDCViz = False
 
 class MDApp():
     
@@ -48,12 +48,14 @@ class MDApp():
         self.stopped = False
         
     def addField(self, field, region):
-
-        field.addRegion(region)
         
         #Make sure not to perform more than necessary tests if several fields share a region
         if region not in self.regions:
             self.regions.append(region)
+        else:
+            region = self.regions[self.regions.index(region)]
+            
+        field.addRegion(region)
             
         self.fields.append(field)
         
@@ -78,11 +80,16 @@ class MDApp():
         
         for field in self.fields:
             field.update()
+            
+            print field
     
     
     def run(self, T):
         
         n = int(T/self.dt)
+
+        self.thermalize()        
+        
         if useDCViz:
             self.DCVizApp.start() 
         
@@ -91,11 +98,11 @@ class MDApp():
         while i < n and not self.stopped:
 
             self.integrator.updateAtoms(self.ensemble)
-
-            self.ensemble.getKineticEnergy()
-            self.ensemble.checkLinearMomentum()
-            self.ensemble.getTemperature()
-            self.ensemble.getPressure()
+            
+#            self.ensemble.getKineticEnergy()
+#            self.ensemble.checkLinearMomentum()
+#            self.ensemble.getTemperature()
+#            self.ensemble.getPressure()
 
             self.updateFields()
             
@@ -109,6 +116,20 @@ class MDApp():
         
         
         
+        
+    def thermalize(self):
+
+        Tnew = self.ensemble.thermalizer.bathT
+        T = 0
+        
+        while abs(T - Tnew)/Tnew > 1E-4:
+            self.integrator.updateAtoms(self.ensemble)            
+            
+            T = Tnew
+            Tnew = self.ensemble.thermalize()
+            print Tnew, self.ensemble.thermalizer.bathT
+        
+        
     def clean(self): 
         if useDCViz:
                 self.DCVizApp.stop()
@@ -116,7 +137,7 @@ class MDApp():
 
     def makeDCVizFile(self, i=0):
         
-        out = "%g %g %g\n%s\n" % (tuple(self.mesh.shape) + (self.ensemble.T,) + (str([obj.T for obj in self.fields]),))    
+        out = "%g %g %g\n%s\n" % (tuple(self.mesh.shape) + (self.ensemble.T,) + (str([obj.T for obj in self.fields if obj._type == "thermostat"]),))    
         
         for atom in self.ensemble.atoms:
             if atom.sticky:

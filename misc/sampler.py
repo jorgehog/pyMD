@@ -27,6 +27,9 @@ def getTemperature(atoms, Ek = None, N = None):
         if not N:
             N = getNumberOfFrees(atoms)
     
+        if N is 0:
+            return 0
+    
         return 2*Ek/(3*N*1.38E-23)
         
 
